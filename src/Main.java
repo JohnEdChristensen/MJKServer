@@ -57,6 +57,7 @@ public class Main {
 
                 //Receive message from client
                 inputStream = new ObjectInputStream(socket.getInputStream());
+                outputStream = new ObjectOutputStream(socket.getOutputStream());
                 command = (String) inputStream.readObject();
                 System.out.println("Command from the client: " + command);
                 //determine command/process
@@ -76,6 +77,9 @@ public class Main {
                     case "sendReport":
                         outputMessage = OSNDReport();
                         break;
+                    case "SearchQuery":
+                        outputMessage = pipeQuery();
+                        break;
                     case "Test":
                         outputMessage = checkVersionCode();
                         break;
@@ -88,7 +92,7 @@ public class Main {
 
                 if(!serverEnd) {
                     //Send message to the client
-                    outputStream = new ObjectOutputStream(socket.getOutputStream());
+
                     outputStream.writeObject(outputMessage);
                     outputStream.flush();
                     System.out.println("Sent client a message: " + outputMessage);
@@ -253,6 +257,58 @@ public class Main {
             e.printStackTrace();
         }
         return "OS&D Report Failed";
+    }
+    private static String pipeQuery(){
+        Vector<String>pipeLineList = new Vector<>(0,1);
+        try{
+            String searchMode = (String) inputStream.readObject();
+            String searchText = (String) inputStream.readObject();
+
+            Connection con = DriverManager.getConnection(dataBaseLocation);
+            Statement st = con.createStatement();
+            String sqlCommand = "Select * from [Spool Data]" +
+                    "where '" +searchMode+ "' = '" +searchText+ "'" ;
+            ResultSet resultSet = st.executeQuery(sqlCommand);
+            while(resultSet.next()) {
+               String pipeLine = resultSet.getString("ID") + "," + resultSet.getString("Branch/Plant")
+                        + "," + resultSet.getString("Spool No") + "," + resultSet.getString("Order No")
+                        + "," + resultSet.getString("Weight") + "," + resultSet.getString("Area")
+                        + "," + resultSet.getString("Paint System") + "," + resultSet.getString("Inbound Load #")
+                        + "," + resultSet.getString("Internal Blast") + "," + resultSet.getString("Cleaning Method")
+                        + "," + resultSet.getString("Date Received") + "," + resultSet.getString("Surface Preparation")
+                        + "," + resultSet.getString("OS&D Detail") + "," + resultSet.getString("Load List #")
+                        + "," + resultSet.getString("Trailer #") + "," + resultSet.getString("Invoiced")
+                        + "," + resultSet.getString("Location")
+                        + "," + resultSet.getString("Date Unloaded") + "," + resultSet.getString("Shift Unloaded")
+                        + "," + resultSet.getString("User Unloaded") + "," + resultSet.getString("Date Blasted")
+                        + "," + resultSet.getString("Shift Blasted") + "," + resultSet.getString("User Blasted")
+                        + "," + resultSet.getString("Date Painted") + "," + resultSet.getString("Shift Painted")
+                        + "," + resultSet.getString("User Painted") + "," + resultSet.getString("Date Touched Up")
+                        + "," + resultSet.getString("Shift Touched Up") + "," + resultSet.getString("User Touched Up")
+                        + "," + resultSet.getString("Date Loaded") + "," + resultSet.getString("Shift Loaded") + ","
+                        + "," + resultSet.getString("User Loaded");
+               pipeLineList.add(pipeLine);
+            }
+            outputStream.writeInt(pipeLineList.size());
+            for (String aPipeLineList : pipeLineList) {
+                outputStream.writeObject(aPipeLineList);
+            }
+            return "search finished";
+
+        }catch(IOException e){
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        try {
+            outputStream.writeInt(pipeLineList.size());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return "search failed";
+
     }
 
 
